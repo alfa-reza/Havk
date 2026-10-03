@@ -1,12 +1,12 @@
 {
-	"name": "@earendil-works/pi-coding-agent",
-	"version": "1.0.0",
+	"name": "@alfa-reza/havk",
+	"version": "0.1.0",
 	"lockfileVersion": 3,
 	"requires": true,
 	"packages": {
 		"": {
-			"name": "@earendil-works/pi-coding-agent",
-			"version": "1.0.0",
+			"name": "@alfa-reza/havk",
+			"version": "0.1.0",
 			"license": "MIT",
 			"dependencies": {
 				"@earendil-works/chord": "^1.0.0",
@@ -33,7 +33,7 @@
 				"yaml": "2.9.0"
 			},
 			"bin": {
-				"pi": "dist/bundle/cli.js"
+				"havk": "dist/bundle/cli.js"
 			},
 			"engines": {
 				"node": ">=22.19.0"

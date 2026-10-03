@@ -7,7 +7,16 @@ import { join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { getPublicWorkspacePackages } from "./release-packages.mjs";
 
-const codingAgentName = "@earendil-works/pi-coding-agent";
+const codingAgentPackageJson = JSON.parse(
+	readFileSync(fileURLToPath(new URL("../packages/coding-agent/package.json", import.meta.url)), "utf8"),
+);
+export const codingAgentName = codingAgentPackageJson.name;
+const codingAgentBinEntries = Object.entries(codingAgentPackageJson.bin ?? {});
+if (codingAgentBinEntries.length !== 1) throw new Error("Coding-agent package must expose exactly one CLI bin");
+export const codingAgentBinName = codingAgentBinEntries[0][0];
+const codingAgentAppName = codingAgentPackageJson.piConfig?.name || "pi";
+const codingAgentConfigDir = codingAgentPackageJson.piConfig?.configDir || ".pi";
+const codingAgentAgentDirEnvName = `${codingAgentAppName.toUpperCase()}_CODING_AGENT_DIR`;
 const developmentPackages = new Set(["pi-client", "pi-protocol", "pi-server"].map((name) => `@earendil-works/${name}`));
 
 function run(command, args, options = {}) {
@@ -92,7 +101,7 @@ export function smokeTestCodingAgentConsumer(directory, runtime = process.execPa
 		LOCALAPPDATA: home,
 		XDG_CONFIG_HOME: home,
 		XDG_CACHE_HOME: home,
-		PI_CODING_AGENT_DIR: join(home, ".pi", "agent"),
+		[codingAgentAgentDirEnvName]: join(home, codingAgentConfigDir, "agent"),
 		PI_OFFLINE: "1",
 		PI_TELEMETRY: "0",
 	};
@@ -113,7 +122,9 @@ for (const subpath of ["/client", "/experimental/plugin"]) {
 }
 `);
 		run(runtime, [entry], { cwd: directory, env, timeout: 30_000 });
-		for (const cli of new Set([manifest.bin.pi, "dist/cli.js"])) {
+		const packageCli = manifest.bin?.[codingAgentBinName];
+		if (!packageCli) throw new Error(`Installed coding-agent package has no ${codingAgentBinName} bin`);
+		for (const cli of new Set([packageCli, "dist/cli.js"])) {
 			const output = run(runtime, [join(packageDir, cli), "--version"], { cwd: directory, env, timeout: 30_000 });
 			if (output.trim() !== manifest.version) throw new Error(`Unexpected version from ${cli}: ${output}`);
 		}

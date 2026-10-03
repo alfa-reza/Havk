@@ -5,9 +5,8 @@ import { chmod, chown, lstat, mkdir, mkdtemp, readdir, readFile, rm, writeFile }
 import { tmpdir } from "node:os";
 import { dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
 import { performance } from "node:perf_hooks";
-import { contentText, InMemoryCredentialStore } from "@earendil-works/pi-ai";
-import { getCurrentSystemPrompt } from "@earendil-works/pi-ai/utils/transcript";
 import {
+	CONFIG_DIR_NAME,
 	type AgentSession,
 	type CreateAgentSessionOptions,
 	createAgentSessionFromServices,
@@ -17,7 +16,9 @@ import {
 	ModelRuntime,
 	readStoredCredential,
 	SessionManager,
-} from "@earendil-works/pi-coding-agent";
+} from "@alfa-reza/havk";
+import { contentText, InMemoryCredentialStore } from "@earendil-works/pi-ai";
+import { getCurrentSystemPrompt } from "@earendil-works/pi-ai/utils/transcript";
 import {
 	attachHarnessRunToError,
 	createHarness,
@@ -31,6 +32,7 @@ import {
 	toJsonValue,
 	type UsageSummary,
 } from "vitest-evals/harness";
+import { CODING_AGENT_DIR_ENV_NAME } from "./distribution.ts";
 import type { DocumentationVariant } from "./plan.ts";
 import { PI_SESSION_SNAPSHOT_ARTIFACT } from "./report.ts";
 
@@ -80,7 +82,11 @@ export function resolveModelSelection(
 }
 
 export function applyIsolatedEnvironment(home: string, agentDir: string): () => void {
-	const overrides = { HOME: home, USERPROFILE: home, PI_CODING_AGENT_DIR: agentDir };
+	const overrides = {
+		HOME: home,
+		USERPROFILE: home,
+		[CODING_AGENT_DIR_ENV_NAME]: agentDir,
+	};
 	const previous = new Map<string, string | undefined>();
 	for (const name of Object.keys(process.env)) {
 		if (!name.startsWith("PI_EVAL_")) continue;
@@ -283,7 +289,7 @@ async function runPiCodingAgent<TOutput extends JsonValue>(
 	const root = await mkdtemp(join(tmpdir(), "pi-eval-"));
 	const workspace = join(root, "workspace");
 	const isolatedHome = join(root, "home");
-	const agentDir = join(isolatedHome, ".pi", "agent");
+	const agentDir = join(isolatedHome, CONFIG_DIR_NAME, "agent");
 	const extensionFactories: InlineExtension[] = [];
 	let forcedSystemPrompt: string | undefined;
 	if (options.transformSystemPrompt) {

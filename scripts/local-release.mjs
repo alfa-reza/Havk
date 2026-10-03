@@ -4,7 +4,13 @@ import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symli
 import { tmpdir } from "node:os";
 import { isAbsolute, join, relative, resolve } from "node:path";
 import { spawnSync } from "node:child_process";
-import { installCodingAgentConsumer, packReleasePackages, smokeTestCodingAgentConsumer } from "./coding-agent-consumer.mjs";
+import {
+	codingAgentBinName,
+	codingAgentName,
+	installCodingAgentConsumer,
+	packReleasePackages,
+	smokeTestCodingAgentConsumer,
+} from "./coding-agent-consumer.mjs";
 
 const packages = [
 	{ directory: "packages/chord", name: "@earendil-works/chord" },
@@ -18,7 +24,7 @@ const packages = [
 	{ directory: "packages/protocol", name: "@earendil-works/pi-protocol" },
 	{ directory: "packages/client", name: "@earendil-works/pi-client" },
 	{ directory: "packages/server", name: "@earendil-works/pi-server" },
-	{ directory: "packages/coding-agent", name: "@earendil-works/pi-coding-agent" },
+	{ directory: "packages/coding-agent", name: codingAgentName },
 ];
 
 function printUsage() {
@@ -168,19 +174,31 @@ function buildBunBinaryRelease(targetDirectory, archiveDirectory) {
 	return platform;
 }
 
-function createPiShim(installDirectory) {
+function createCodingAgentShim(installDirectory) {
 	const binDirectory = join(installDirectory, "node_modules", ".bin");
 	if (process.platform === "win32") {
-		if (existsSync(join(binDirectory, "pi.cmd"))) {
-			writeFileSync(join(installDirectory, "pi.cmd"), '@ECHO off\r\n"%~dp0node_modules\\.bin\\pi.cmd" %*\r\n');
-			writeFileSync(join(installDirectory, "pi.ps1"), '& "$PSScriptRoot/node_modules/.bin/pi.ps1" @args\n');
+		if (existsSync(join(binDirectory, `${codingAgentBinName}.cmd`))) {
+			writeFileSync(
+				join(installDirectory, `${codingAgentBinName}.cmd`),
+				`@ECHO off\r\n"%~dp0node_modules\\.bin\\${codingAgentBinName}.cmd" %*\r\n`,
+			);
+			writeFileSync(
+				join(installDirectory, `${codingAgentBinName}.ps1`),
+				`& "$PSScriptRoot/node_modules/.bin/${codingAgentBinName}.ps1" @args\n`,
+			);
 			return;
 		}
-		writeFileSync(join(installDirectory, "pi.cmd"), '@ECHO off\r\n"%~dp0node_modules\\.bin\\pi.exe" %*\r\n');
-		writeFileSync(join(installDirectory, "pi.ps1"), '& "$PSScriptRoot/node_modules/.bin/pi.exe" @args\n');
+		writeFileSync(
+			join(installDirectory, `${codingAgentBinName}.cmd`),
+			`@ECHO off\r\n"%~dp0node_modules\\.bin\\${codingAgentBinName}.exe" %*\r\n`,
+		);
+		writeFileSync(
+			join(installDirectory, `${codingAgentBinName}.ps1`),
+			`& "$PSScriptRoot/node_modules/.bin/${codingAgentBinName}.exe" @args\n`,
+		);
 		return;
 	}
-	symlinkSync(join("node_modules", ".bin", "pi"), join(installDirectory, "pi"));
+	symlinkSync(join("node_modules", ".bin", codingAgentBinName), join(installDirectory, codingAgentBinName));
 }
 
 const options = parseArgs();
@@ -223,7 +241,7 @@ if (!options.skipInstall) {
 
 	installCodingAgentConsumer(nodeInstallDirectory, tarballs);
 	smokeTestCodingAgentConsumer(nodeInstallDirectory);
-	createPiShim(nodeInstallDirectory);
+	createCodingAgentShim(nodeInstallDirectory);
 
 	if (!options.skipBunInstall) {
 		if (!commandExists("bun")) {
@@ -231,7 +249,7 @@ if (!options.skipInstall) {
 		}
 		installCodingAgentConsumer(bunInstallDirectory, tarballs, "bun");
 		smokeTestCodingAgentConsumer(bunInstallDirectory, "bun");
-		createPiShim(bunInstallDirectory);
+		createCodingAgentShim(bunInstallDirectory);
 	}
 }
 
@@ -252,12 +270,12 @@ if (!options.skipInstall) {
 	console.log("\nIsolated npm install:");
 	console.log(`  ${nodeInstallDirectory}`);
 	console.log("\nRun the locally packed npm CLI from outside the repository:");
-	console.log(`  ${join(nodeInstallDirectory, process.platform === "win32" ? "pi.cmd" : "pi")} --help`);
+	console.log(`  ${join(nodeInstallDirectory, process.platform === "win32" ? `${codingAgentBinName}.cmd` : codingAgentBinName)} --help`);
 
 	if (!options.skipBunInstall) {
 		console.log("\nIsolated Bun package install:");
 		console.log(`  ${bunInstallDirectory}`);
 		console.log("\nRun the locally packed Bun package CLI from outside the repository:");
-		console.log(`  ${join(bunInstallDirectory, process.platform === "win32" ? "pi.cmd" : "pi")} --help`);
+		console.log(`  ${join(bunInstallDirectory, process.platform === "win32" ? `${codingAgentBinName}.cmd` : codingAgentBinName)} --help`);
 	}
 }

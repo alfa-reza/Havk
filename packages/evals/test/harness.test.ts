@@ -1,5 +1,6 @@
 import { homedir } from "node:os";
-import { getDocsPath, getExamplesPath, getReadmePath } from "@earendil-works/pi-coding-agent";
+import { join } from "node:path";
+import { CONFIG_DIR_NAME, getAgentDir, getDocsPath, getExamplesPath, getReadmePath } from "@alfa-reza/havk";
 import { describe, expect, it, vi } from "vitest";
 import { buildSystemPrompt } from "../../coding-agent/src/core/system-prompt.ts";
 import {
@@ -11,6 +12,7 @@ import {
 	resolveModelSelection,
 	verifySystemPrompt,
 } from "../src/harness.ts";
+import { CODING_AGENT_DIR_ENV_NAME } from "../src/distribution.ts";
 
 describe("resolveModelSelection", () => {
 	it("prefers an explicit harness model", () => {
@@ -38,21 +40,25 @@ describe("resolveModelSelection", () => {
 });
 
 describe("isolateProcessEnvironment", () => {
-	it("removes runner metadata and restores the process environment", () => {
+	it("removes runner metadata, isolates the agent directory, and restores the process environment", () => {
 		vi.stubEnv("PI_EVAL_VARIANT", "with_docs");
 		vi.stubEnv("PI_EVAL_ARTIFACT_DIR", "/tmp/artifacts");
+		vi.stubEnv(CODING_AGENT_DIR_ENV_NAME, "/tmp/real-agent");
 		const oldHome = process.env.HOME;
 		try {
-			const restore = applyIsolatedEnvironment("/tmp/eval-home", "/tmp/eval-agent");
+			const isolatedAgentDir = join("/tmp/eval-home", CONFIG_DIR_NAME, "agent");
+			const restore = applyIsolatedEnvironment("/tmp/eval-home", isolatedAgentDir);
 			try {
 				expect(homedir()).toBe("/tmp/eval-home");
-				expect(process.env.PI_CODING_AGENT_DIR).toBe("/tmp/eval-agent");
+				expect(getAgentDir()).toBe(isolatedAgentDir);
+				expect(process.env[CODING_AGENT_DIR_ENV_NAME]).toBe(isolatedAgentDir);
 				expect(process.env.PI_EVAL_VARIANT).toBeUndefined();
 				expect(process.env.PI_EVAL_ARTIFACT_DIR).toBeUndefined();
 			} finally {
 				restore();
 			}
 			expect(process.env.HOME).toBe(oldHome);
+			expect(process.env[CODING_AGENT_DIR_ENV_NAME]).toBe("/tmp/real-agent");
 			expect(process.env.PI_EVAL_VARIANT).toBe("with_docs");
 		} finally {
 			vi.unstubAllEnvs();
